@@ -71,14 +71,18 @@ class TaskStore:
                 pass    # sqlite_sequence table doesn't exist, which is fine
 
 class VectorIndex:
-    def __init__(self, embedding_dim: int = 384):  # SentenceTransformer default dim
-        self.index = faiss.IndexFlatL2(embedding_dim)
-        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+    def __init__(self):
+        self.embedding_model = SentenceTransformer('all-mpnet-base-v2')
+        self.embedding_dim = self.embedding_model.get_sentence_embedding_dimension()
+        self.index = faiss.IndexFlatL2(self.embedding_dim)
         self.task_ids = []
         self.lock = Lock()
 
     def add_embedding(self, task_id: int, text: str):
-        embedding = self.embedding_model.encode([text])[0]
+        text = text.strip()
+        embedding = self.embedding_model.encode([text], 
+                                              normalize_embeddings=True,  # L2 normalization
+                                              show_progress_bar=False)[0]
         with self.lock:
             self.index.add(np.array([embedding], dtype=np.float32))
             self.task_ids.append(task_id)
