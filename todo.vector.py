@@ -8,6 +8,9 @@ from dataclasses import dataclass
 from threading import Lock
 import logging
 import time
+import google.generativeai as genai
+from typing import Optional
+import os
 
 # Add at the beginning of the file, after imports
 logging.basicConfig(
@@ -71,18 +74,14 @@ class TaskStore:
                 pass    # sqlite_sequence table doesn't exist, which is fine
 
 class VectorIndex:
-    def __init__(self):
-        self.embedding_model = SentenceTransformer('all-mpnet-base-v2')
-        self.embedding_dim = self.embedding_model.get_sentence_embedding_dimension()
-        self.index = faiss.IndexFlatL2(self.embedding_dim)
+    def __init__(self, embedding_dim: int = 384):  # SentenceTransformer default dim
+        self.index = faiss.IndexFlatL2(embedding_dim)
+        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
         self.task_ids = []
         self.lock = Lock()
 
     def add_embedding(self, task_id: int, text: str):
-        text = text.strip()
-        embedding = self.embedding_model.encode([text], 
-                                              normalize_embeddings=True,  # L2 normalization
-                                              show_progress_bar=False)[0]
+        embedding = self.embedding_model.encode([text])[0]
         with self.lock:
             self.index.add(np.array([embedding], dtype=np.float32))
             self.task_ids.append(task_id)
@@ -94,10 +93,72 @@ class VectorIndex:
         )
         return [self.task_ids[idx] for idx in indices[0] if idx != -1]
 
+class EnhancedVectorIndex:
+    def __init__(self, embedding_dim: int = 768, use_llm: bool = True):
+        self.index = faiss.IndexFlatL2(embedding_dim)
+        self.embedding_model = SentenceTransformer('sentence-transformers/all-mpnet-base-v2')
+        self.use_llm = use_llm
+        self.task_ids = []
+        self.lock = Lock()
+
+        # Initialize Gemini
+        if use_llm:
+            genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
+            # Using the most capable model
+            self.model = genai.GenerativeModel('gemini-1.5-flash')
+
+    async def get_llm_enhanced_text(self, text: str) -> str:
+        """Enhance text using Gemini for better semantic understanding"""
+        try:
+            prompt = f"""
+            Enhance this task description while preserving its core meaning.
+            Keep the enhancement concise and focused on the task context.
+            Find high level tags that best abstraacts and categorises the task by context. 
+
+            Task: {text}
+            """
+
+            response = await self.model.generate_content_async(prompt)
+            enhanced_text = response.text
+
+            # Combine original and enhanced text
+            logging.debug(f"{text} - {enhanced_text}")
+            return f"{text} {enhanced_text}"
+        except Exception as e:
+            logging.warning(f"Gemini enhancement failed: {e}")
+            return text
+
+    async def add_embedding(self, task_id: int, text: str):
+        if self.use_llm:
+            enhanced_text = await self.get_llm_enhanced_text(text)
+        else:
+            enhanced_text = text
+
+        embedding = self.embedding_model.encode([enhanced_text], 
+                                              normalize_embeddings=True,
+                                              show_progress_bar=False)[0]
+
+        with self.lock:
+            self.index.add(np.array([embedding], dtype=np.float32))
+            self.task_ids.append(task_id)
+
+    async def search(self, query: str, k: int = 5) -> List[int]:
+        if self.use_llm:
+            enhanced_query = await self.get_llm_enhanced_text(query)
+        else:
+            enhanced_query = query
+
+        query_embedding = self.embedding_model.encode([enhanced_query], 
+                                                    normalize_embeddings=True)[0]
+        distances, indices = self.index.search(
+            np.array([query_embedding], dtype=np.float32), k
+        )
+        return [self.task_ids[idx] for idx in indices[0] if idx != -1]
+
 class TaskRecommender:
-    def __init__(self):
+    def __init__(self, use_llm: bool = True):
         self.task_store = TaskStore()
-        self.vector_index = VectorIndex()
+        self.vector_index = EnhancedVectorIndex(use_llm=use_llm)
         self._initialize_vector_index()
 
     def _initialize_vector_index(self):
@@ -111,26 +172,25 @@ class TaskRecommender:
         text = f"{task.title} {task.description}".strip()
         self.vector_index.add_embedding(task.id, text)
 
-    def add_task(self, title: str, description: str = "") -> None:
-        """Add a new task to the system"""
+    async def add_task(self, title: str, description: str = "") -> None:
         task = Task(
-            id=0,  # Will be set by database
+            id=0,
             title=title,
             description=description,
             created_at=datetime.now()
         )
         task_id = self.task_store.add_task(task)
         task.id = task_id
-        self._add_to_vector_index(task)
+        text = f"{task.title} {task.description}".strip()
+        await self.vector_index.add_embedding(task_id, text)
 
-    def find_relevant_tasks(self, query: str, limit: int = 3) -> List[Task]:
-        """Find most relevant tasks based on the query using vector similarity."""
-        relevant_ids = self.vector_index.search(query, k=limit)
+    async def find_relevant_tasks(self, query: str, limit: int = 5) -> List[Task]:
+        relevant_ids = await self.vector_index.search(query, k=limit)
         return self.task_store.get_tasks_by_ids(relevant_ids)
 
-def main():
+async def main():
     # Initialize recommender
-    recommender = TaskRecommender()
+    recommender = TaskRecommender(use_llm=True)
     recommender.task_store.delete_all_tasks()
 
     # Define sample tasks (using a smaller subset for demonstration)
@@ -149,23 +209,32 @@ def main():
 
     # Add tasks to the recommender
     for title, description in tasks_list:
-        recommender.add_task(title, description)
+        await recommender.add_task(title, description)
 
     # Print all tasks
     all_tasks = recommender.task_store.get_all_tasks()
-    # Log number of tasks count
     logging.info(f"Total number of tasks: {len(all_tasks)}")
     # loggin.info("All Tasks:")
     # for task in all_tasks :
     #     loggin.info(f"- {task.title}")
 
     # Test queries
-    queries = ["technology", "planning"]
+    queries = [
+        "project related tasks", 
+        "personal tasks"
+        # "technical planning",
+        # "development tasks",
+        # "meetings and coordination",
+        # "documentation work"
+    ]
 
     # Search and display results
+    print("\nTesting task recommendations:")
+    print("-" * 50)
+
     for query in queries:
         print(f"\nQuery: {query}")
-        relevant_tasks = recommender.find_relevant_tasks(query, limit=3)
+        relevant_tasks = await recommender.find_relevant_tasks(query, limit=3)
         for task in relevant_tasks:
             print(f"- {task.title}: {task.description}")
 
@@ -173,7 +242,8 @@ def main():
     recommender.task_store.delete_all_tasks()
 
 if __name__ == "__main__":
-    main()
+    import asyncio
+    asyncio.run(main())
 
 # Created/Modified files during execution:
 # - tasks.db (SQLite database file)
