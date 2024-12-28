@@ -107,7 +107,7 @@ class EnhancedVectorIndex:
             # Using the most capable model
             self.model = genai.GenerativeModel('gemini-1.5-flash')
 
-    async def get_llm_enhanced_text(self, text: str) -> str:
+    async def enhance_task_description(self, text: str) -> str:
         """Enhance text using Gemini for better semantic understanding"""
         try:
             prompt = f"""
@@ -128,9 +128,27 @@ class EnhancedVectorIndex:
             logging.warning(f"Gemini enhancement failed: {e}")
             return text
 
+    async def enhance_search_query(self, query: str) -> str:
+        """Expand search query with related terms and context for better matching"""
+        try:
+            prompt = f"""
+            Expand this search query for task matching. Consider:
+            1. Related activities and subtasks
+            2. Alternative ways to describe the same goal
+            3. Broader context and categories
+            4. Technical and non-technical terms if applicable
+
+            Query: {query}
+            """
+            response = await self.model.generate_content_async(prompt)
+            return f"{query} {response.text}"
+        except Exception as e:
+            logging.warning(f"Query enhancement failed: {e}")
+            return query
+
     async def add_embedding(self, task_id: int, text: str):
         if self.use_llm:
-            enhanced_text = await self.get_llm_enhanced_text(text)
+            enhanced_text = await self.enhance_task_description(text)
         else:
             enhanced_text = text
 
@@ -144,7 +162,7 @@ class EnhancedVectorIndex:
 
     async def search(self, query: str, k: int = 5) -> List[int]:
         if self.use_llm:
-            enhanced_query = await self.get_llm_enhanced_text(query)
+            enhanced_query = await self.enhance_search_query(query)
         else:
             enhanced_query = query
 
@@ -193,18 +211,47 @@ async def main():
     recommender = TaskRecommender(use_llm=True)
     recommender.task_store.delete_all_tasks()
 
-    # Define sample tasks (using a smaller subset for demonstration)
+    # Define sample tasks grouped by semantic context
     tasks_list = [
-        ("Complete project presentation", "Prepare slides for quarterly review"),
-        ("Schedule dentist appointment", "Annual checkup and cleaning"),
-        ("Update resume", "Add recent projects and skills"),
-        ("Plan team building event", "Organize virtual team activity"),
-        ("Review code pull requests", "Check team's pending PRs"),
-        ("Buy groceries", "Get ingredients for weekly meal prep"),
-        ("Write blog post", "Create technical article about vector databases"),
-        ("Fix website bug", "Debug the user authentication issue"),
-        ("Call insurance company", "Discuss policy renewal and coverage options"),
-        ("Clean home office", "Organize desk and file paperwork")
+        # Development Tasks
+        # ("Debug authentication service", "Fix OAuth token refresh mechanism in login flow"),
+        # ("Optimize database queries", "Improve performance of slow-running SQL queries in user service"),
+        # ("Implement API endpoints", "Create new REST endpoints for customer dashboard"),
+        # ("Code review backlog", "Review pending pull requests for frontend features"),
+        # ("Update dependencies", "Upgrade npm packages and fix security vulnerabilities"),
+
+        # # Documentation & Communication Tasks
+        # ("Write API documentation", "Create Swagger docs for new payment API endpoints"),
+        # ("Draft release notes", "Prepare changelog for version 2.0 release"),
+        # ("Technical blog post", "Write article about our microservices architecture"),
+        # ("Update user guide", "Revise installation and setup documentation"),
+        # ("Team newsletter", "Compile monthly technical achievements and updates"),
+
+        # # Planning & Management Tasks
+        # ("Sprint planning meeting", "Organize next sprint's goals and task allocation"),
+        # ("Architecture review", "Evaluate proposed system design changes"),
+        # ("Resource allocation", "Plan team capacity for Q3 projects"),
+        # ("Stakeholder presentation", "Prepare slides for quarterly technical review"),
+        # ("Team performance review", "Complete developer evaluations for Q2"),
+
+        # # Infrastructure & Operations Tasks
+        # ("Server maintenance", "Apply security patches to production servers"),
+        # ("Monitoring setup", "Configure Grafana dashboards for new services"),
+        # ("Backup verification", "Test database backup and recovery procedures"),
+        # ("CI/CD pipeline update", "Optimize build times in Jenkins pipeline"),
+        # ("Cloud cost optimization", "Review and optimize AWS resource usage"),
+
+        # # Personal Tasks
+        # ("Grocery shopping", "Buy vegetables, fruits, and other essentials for the week"),
+        # ("Morning workout", "Complete a 30-minute cardio and strength training session"),
+        # ("Read a book", "Finish reading the last two chapters of the novel"),
+        # ("Plan vacation", "Research destinations and book flights for the summer trip"),
+        # ("Family dinner", "Prepare a special meal for the family gathering this weekend"),
+        ("Gardening", "Plant new flowers and trim the hedges in the backyard"),
+        # ("Organize closet", "Sort clothes and donate items no longer needed"),
+        # ("Pay bills", "Settle electricity, water, and internet bills for the month"),
+        # ("Call parents", "Catch up with mom and dad over a phone call"),
+        # ("Bake a cake", "Try a new recipe for a chocolate cake for the weekend"),
     ]
 
     # Add tasks to the recommender
@@ -218,14 +265,29 @@ async def main():
     # for task in all_tasks :
     #     loggin.info(f"- {task.title}")
 
-    # Test queries
+    # Test queries (short and long)
     queries = [
-        "project related tasks", 
-        "personal tasks"
-        # "technical planning",
-        # "development tasks",
-        # "meetings and coordination",
-        # "documentation work"
+        # Short queries
+        # "debugging service",
+        # "database optimization",
+        # "API documentation",
+        # "team meeting",
+        # "server maintenance",
+        # "grocery shopping",
+        # "morning workout",
+        # "vacation planning",
+        # "family dinner",
+        # "baking",
+
+        # Long queries
+        # "How to fix issues with OAuth token refresh in the login flow?",
+        # "What are the best practices for optimizing SQL queries in a user service?",
+        # "Can you recommend tasks related to writing technical documentation?",
+        # "I need to organize a sprint planning meeting for the next sprint's goals.",
+        # "What tasks involve applying security patches to production servers?",
+        "What are some personal tasks related to gardening and organizing?",
+        # "I want to plan a vacation and book flights for the summer trip.",
+        # "What are some tasks related to catching up with family or parents?",
     ]
 
     # Search and display results
