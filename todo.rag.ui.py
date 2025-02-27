@@ -37,6 +37,14 @@ if "task_data" not in st.session_state:
 if "question_key" not in st.session_state:
     st.session_state.question_key = 0
 
+# Add keys for task input fields to reset them
+if "task_title_key" not in st.session_state:
+    st.session_state.task_title_key = 0
+if "task_description_key" not in st.session_state:
+    st.session_state.task_description_key = 0
+if "task_tags_key" not in st.session_state:
+    st.session_state.task_tags_key = 0
+
 # Function to load test data
 def load_test_data(filepath="todo.rag.test_data.json"):
     """Loads test data from a JSON file."""
@@ -137,6 +145,13 @@ def reset_question_input():
     # Increment the key to force a reset of the input widget
     st.session_state.question_key += 1
 
+# Function to reset task input fields
+def reset_task_inputs():
+    # Increment the keys to force a reset of the input widgets
+    st.session_state.task_title_key += 1
+    st.session_state.task_description_key += 1
+    st.session_state.task_tags_key += 1
+
 # Main UI layout
 st.title("✅ Task Recommendation System")
 
@@ -183,14 +198,26 @@ with col1:
     # Add new task section below the task list
     st.subheader("Add New Task")
     
-    # Task title input (always visible)
-    task_title = st.text_input("Task Title", placeholder="Enter task title")
-    
+    # Task title input (always visible) with dynamic key
+    task_title = st.text_input(
+        "Task Title", 
+        placeholder="Enter task title",
+        key=f"task_title_{st.session_state.task_title_key}"
+    )
+
     # Expandable section for description and tags
     with st.expander("Add Description and Tags", expanded=False):
-        task_description = st.text_area("Task Description", placeholder="Enter task description")
-        task_tags = st.text_input("Tags (comma-separated)", placeholder="e.g., Project A, development, frontend")
-    
+        task_description = st.text_area(
+            "Task Description", 
+            placeholder="Enter task description",
+            key=f"task_description_{st.session_state.task_description_key}"
+        )
+        task_tags = st.text_input(
+            "Tags (comma-separated)", 
+            placeholder="e.g., Project A, development, frontend",
+            key=f"task_tags_{st.session_state.task_tags_key}"
+        )
+
     # Add task button
     if st.button("Add Task"):
         if not task_title:
@@ -205,6 +232,8 @@ with col1:
             success = add_new_task(task_title, description, tags)
             if success:
                 st.success(f"Task '{task_title}' added successfully!")
+                # Reset all task input fields
+                reset_task_inputs()
                 # Clear the form fields by rerunning
                 st.rerun()
 
