@@ -33,6 +33,10 @@ if "chain" not in st.session_state:
 if "task_data" not in st.session_state:
     st.session_state.task_data = []
 
+# Add a key for the question input to reset it
+if "question_key" not in st.session_state:
+    st.session_state.question_key = 0
+
 # Function to load test data
 def load_test_data(filepath="todo.rag.test_data.json"):
     """Loads test data from a JSON file."""
@@ -128,6 +132,11 @@ def initialize_rag_system():
     
     return retrieval_chain, st.session_state.task_data
 
+# Function to reset the question input field
+def reset_question_input():
+    # Increment the key to force a reset of the input widget
+    st.session_state.question_key += 1
+
 # Main UI layout
 st.title("✅ Task Recommendation System")
 
@@ -213,8 +222,12 @@ with col2:
             else:
                 st.markdown(f"**Assistant:** {message['content']}")
     
-    # Chat input
-    user_input = st.text_input("Your question:", placeholder="e.g., What tasks are related to Project A?")
+    # Chat input with dynamic key to force reset
+    user_input = st.text_input(
+        "Your question:", 
+        placeholder="e.g., What tasks are related to Project A?",
+        key=f"question_input_{st.session_state.question_key}"
+    )
     
     if st.button("Send") and user_input:
         if st.session_state.chain is None:
@@ -231,6 +244,9 @@ with col2:
                     
                     # Add assistant response to chat history
                     st.session_state.chat_history.append({"role": "assistant", "content": answer})
+
+                    # Reset the question input field
+                    reset_question_input()
                     
                     # Rerun to update the UI
                     st.rerun()
