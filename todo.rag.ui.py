@@ -247,7 +247,12 @@ with col2:
     with chat_container:
         for message in st.session_state.chat_history:
             if message["role"] == "user":
-                st.markdown(f"**You:** {message['content']}")
+              # Align user messages to the right
+              st.markdown(
+                f'<div style="text-align: right;"><b>You:</b> {message["content"]}</div>',
+                unsafe_allow_html=True,
+              )
+
             else:
                 st.markdown(f"**Assistant:** {message['content']}")
     
