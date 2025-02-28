@@ -9,6 +9,10 @@ from langchain.vectorstores import FAISS
 from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferMemory
 from langchain.schema import Document
+import sqlite3
+
+# Import the TaskDatabase class
+from todo_rag_database import TaskDatabase 
 
 # Page configuration
 st.set_page_config(
@@ -45,22 +49,11 @@ if "task_description_key" not in st.session_state:
 if "task_tags_key" not in st.session_state:
     st.session_state.task_tags_key = 0
 
-# Function to load test data
-def load_test_data(filepath="todo.rag.test_data.json"):
-    """Loads test data from a JSON file."""
-    try:
-        with open(filepath, "r") as f:
-            data = json.load(f)
-        return data
-    except FileNotFoundError:
-        st.error(f"Test data file not found: {filepath}")
-        return []
-    except json.JSONDecodeError:
-        st.error(f"Invalid JSON format in {filepath}")
-        return []
-    except Exception as e:
-        st.error(f"An error occurred: {e}")
-        return []
+# --- Initialize database ---
+db = TaskDatabase()
+db.initialize_db()
+db.truncate_tables()
+db.populate_from_json()
 
 # Function to create documents
 def create_documents(data):
@@ -68,7 +61,7 @@ def create_documents(data):
     for i, task in enumerate(data):
         text = f"Title: {task['title']}\n"
         text += f"Description: {task['description']}\n"
-        text += f"Tags: {', '.join(task['tags'])}\n"
+        text += f"Tags: {task['tags']}\n"
         text += f"Timestamp: {task['timestamp']}\n\n"
 
         doc = Document(page_content=text, metadata=task)
@@ -86,8 +79,8 @@ def add_new_task(title, description, tags_string):
         "timestamp": datetime.now().isoformat()
     }
     
-    # Add to session state
-    st.session_state.task_data.append(new_task)
+    # Add to DB
+    db.add_task(new_task)
     
     # Reinitialize the RAG system with updated data
     st.session_state.chain, _ = initialize_rag_system()
@@ -106,20 +99,16 @@ def initialize_rag_system():
 
     genai.configure(api_key=api_key)
     
-    # Load test data if task_data is empty
-    if not st.session_state.task_data:
-        with st.spinner("Loading task data..."):
-            test_data = load_test_data()
+    # Load data from DB
+    with st.spinner("Loading task data from db..."):
+        task_data = db.get_all_tasks()
             
-            if not test_data:
-                st.error("No task data loaded. Please check your data file.")
-                return None, []
-            
-            # Store in session state
-            st.session_state.task_data = test_data
+        if not task_data:
+            st.error("No task data loaded. Please check your data file.")
+            return None, []
     
     # Create documents from task data
-    documents = create_documents(st.session_state.task_data)
+    documents = create_documents([{'title': t['title'], 'description': t['description'], 'tags':t['tags'].split(','), 'timestamp': t['timestamp']} for t in task_data])
     
     # Create embeddings
     embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
@@ -138,7 +127,7 @@ def initialize_rag_system():
         verbose=True
     )
     
-    return retrieval_chain, st.session_state.task_data
+    return retrieval_chain, task_data
 
 # Function to reset the question input field
 def reset_question_input():
@@ -168,32 +157,35 @@ with col1:
     
     # Filter options
     filter_options = ["All"]
-    if st.session_state.task_data:
-        # Extract unique project tags
-        all_tags = set()
-        for task in st.session_state.task_data:
-            all_tags.update(task['tags'])
-        filter_options.extend(sorted(all_tags))
+    
+    # Extract unique project tags from db
+    all_tags = set()
+    tasks = db.get_all_tasks()
+    for task in tasks:
+        all_tags.update(task['tags'].split(','))
+
+    filter_options.extend(sorted(all_tags))
     
     selected_filter = st.selectbox("Filter by tag:", filter_options)
     
     # Display tasks based on filter
-    if st.session_state.task_data:
-        filtered_tasks = st.session_state.task_data
-        if selected_filter != "All":
-            filtered_tasks = [task for task in st.session_state.task_data if selected_filter in task['tags']]
+    filtered_tasks = []
+    if selected_filter == "All":
+        filtered_tasks = db.get_all_tasks()
+    else:
+        filtered_tasks = db.get_tasks_by_tags(selected_filter)
         
-        # Create a container with fixed height and scrolling
-        task_container = st.container(height=400, border=True)
-        
-        with task_container:
-            for i, task in enumerate(filtered_tasks):
-                with st.expander(f"📌 {task['title']}"):
-                    st.write(f"**Description:** {task['description']}")
-                    st.write(f"**Tags:** {', '.join(task['tags'])}")
-                    # Convert timestamp to a more readable format
-                    timestamp = datetime.fromisoformat(task['timestamp'])
-                    st.write(f"**Created:** {timestamp.strftime('%Y-%m-%d %H:%M')}")
+    # Create a container with fixed height and scrolling
+    task_container = st.container(height=400, border=True)
+    
+    with task_container:
+        for i, task in enumerate(filtered_tasks):
+            with st.expander(f"📌 {task['title']}"):
+                st.write(f"**Description:** {task['description']}")
+                st.write(f"**Tags:** {task['tags']}")
+                # Convert timestamp to a more readable format
+                timestamp = datetime.fromisoformat(task['timestamp'])
+                st.write(f"**Created:** {timestamp.strftime('%Y-%m-%d %H:%M')}")
     
     # Add new task section below the task list
     st.subheader("Add New Task")
