@@ -18,7 +18,7 @@ from todo_rag_database import TaskDatabase
 st.set_page_config(
     page_title="Task Recommendation System",
     page_icon="✅",
-    layout="wide"
+    layout="centered" # Changed from "wide" to "centered" for minimalist design
 )
 
 # Initialize session state for chat history if it doesn't exist
@@ -27,8 +27,8 @@ if "chat_history" not in st.session_state:
 
 if "memory" not in st.session_state:
     st.session_state.memory = ConversationBufferMemory(
-        memory_key="chat_history",
-        return_messages=True
+    memory_key="chat_history",
+    return_messages=True
     )
 
 if "chain" not in st.session_state:
@@ -102,10 +102,10 @@ def initialize_rag_system():
     # Load data from DB
     with st.spinner("Loading task data from db..."):
         task_data = db.get_all_tasks()
-            
-        if not task_data:
-            st.error("No task data loaded. Please check your data file.")
-            return None, []
+    
+    if not task_data:
+        st.error("No task data loaded. Please check your data file.")
+        return None, []
     
     # Create documents from task data
     documents = create_documents([{'title': t['title'], 'description': t['description'], 'tags':t['tags'].split(','), 'timestamp': t['timestamp']} for t in task_data])
@@ -141,121 +141,119 @@ def reset_task_inputs():
     st.session_state.task_description_key += 1
     st.session_state.task_tags_key += 1
 
-# Main UI layout
+# Main UI layout - Single column minimalist design
 st.title("✅ Task Recommendation System")
 
 # Initialize the system if not already done
 if st.session_state.chain is None:
     st.session_state.chain, _ = initialize_rag_system()
 
-# Split the screen into two columns
-col1, col2 = st.columns([2, 3])
+# Task Management Section (Now at Top)
+st.header("Your Tasks")
 
-# Left column: Task list and add task form
-with col1:
-    st.header("Your Tasks")
-    
-    # Filter options
-    filter_options = ["All"]
-    
-    # Extract unique project tags from db
-    all_tags = set()
-    tasks = db.get_all_tasks()
-    for task in tasks:
-        all_tags.update(task['tags'].split(','))
+# Filter options
+filter_options = ["All"]
 
-    filter_options.extend(sorted(all_tags))
-    
-    selected_filter = st.selectbox("Filter by tag:", filter_options)
-    
-    # Display tasks based on filter
-    filtered_tasks = []
-    if selected_filter == "All":
-        filtered_tasks = db.get_all_tasks()
-    else:
-        filtered_tasks = db.get_tasks_by_tags(selected_filter)
-        
-    # Create a container with fixed height and scrolling
-    task_container = st.container(height=400, border=True)
-    
-    with task_container:
-        for i, task in enumerate(filtered_tasks):
-            with st.expander(f"📌 {task['title']}"):
-                st.write(f"**Description:** {task['description']}")
-                st.write(f"**Tags:** {task['tags']}")
-                # Convert timestamp to a more readable format
-                timestamp = datetime.fromisoformat(task['timestamp'])
-                st.write(f"**Created:** {timestamp.strftime('%Y-%m-%d %H:%M')}")
-    
-    # Add new task section below the task list
-    st.subheader("Add New Task")
-    
-    # Task title input (always visible) with dynamic key
-    task_title = st.text_input(
-        "Task Title", 
-        placeholder="Enter task title",
-        key=f"task_title_{st.session_state.task_title_key}"
+# Extract unique project tags from db
+all_tags = set()
+tasks = db.get_all_tasks()
+for task in tasks:
+    all_tags.update(task['tags'].split(','))
+
+filter_options.extend(sorted(all_tags))
+
+selected_filter = st.selectbox("Filter by tag:", filter_options)
+
+# Display tasks based on filter
+filtered_tasks = []
+if selected_filter == "All":
+    filtered_tasks = db.get_all_tasks()
+else:
+    filtered_tasks = db.get_tasks_by_tags(selected_filter)
+
+# Create a container with fixed height and scrolling
+task_container = st.container(height=300, border=True)
+
+with task_container:
+    for i, task in enumerate(filtered_tasks):
+        with st.expander(f"📌 {task['title']}", expanded=False):
+            st.write(f"**Description:** {task['description']}")
+            st.write(f"**Tags:** {task['tags']}")
+            # Convert timestamp to a more readable format
+            timestamp = datetime.fromisoformat(task['timestamp'])
+            st.write(f"**Created:** {timestamp.strftime('%Y-%m-%d %H:%M')}")
+
+st.divider()
+
+# Add Task Section (Middle)
+st.header("Add New Task")
+
+# Task title input (always visible) with dynamic key
+task_title = st.text_input(
+    "Task Title", 
+    placeholder="Enter task title",
+    key=f"task_title_{st.session_state.task_title_key}"
+)
+
+# Expandable section for description and tags
+with st.expander("Add Description and Tags", expanded=False):
+    task_description = st.text_area(
+        "Task Description", 
+        placeholder="Enter task description",
+        key=f"task_description_{st.session_state.task_description_key}"
+    )
+    task_tags = st.text_input(
+        "Tags (comma-separated)", 
+        placeholder="e.g., Project A, development, frontend",
+        key=f"task_tags_{st.session_state.task_tags_key}"
     )
 
-    # Expandable section for description and tags
-    with st.expander("Add Description and Tags", expanded=False):
-        task_description = st.text_area(
-            "Task Description", 
-            placeholder="Enter task description",
-            key=f"task_description_{st.session_state.task_description_key}"
-        )
-        task_tags = st.text_input(
-            "Tags (comma-separated)", 
-            placeholder="e.g., Project A, development, frontend",
-            key=f"task_tags_{st.session_state.task_tags_key}"
-        )
+# Add task button
+if st.button("Add Task", key="add_task_button"):
+    if not task_title:
+        st.error("Task title is required!")
+    else:
+        # Use empty string for description if not provided
+        description = task_description if task_description else ""
+        # Use "general" as default tag if none provided
+        tags = task_tags if task_tags else "general"
+        
+        # Add the new task
+        success = add_new_task(task_title, description, tags)
+        if success:
+            st.success(f"Task '{task_title}' added successfully!")
+            # Reset all task input fields
+            reset_task_inputs()
+            # Clear the form fields by rerunning
+            st.rerun()
 
-    # Add task button
-    if st.button("Add Task"):
-        if not task_title:
-            st.error("Task title is required!")
-        else:
-            # Use empty string for description if not provided
-            description = task_description if task_description else ""
-            # Use "general" as default tag if none provided
-            tags = task_tags if task_tags else "general"
-            
-            # Add the new task
-            success = add_new_task(task_title, description, tags)
-            if success:
-                st.success(f"Task '{task_title}' added successfully!")
-                # Reset all task input fields
-                reset_task_inputs()
-                # Clear the form fields by rerunning
-                st.rerun()
+st.divider()
 
-# Right column: Chat interface
-with col2:
-    st.header("Task Assistant")
-    st.write("Ask me anything about your tasks!")
-    
-    # Display chat history
-    chat_container = st.container(height=500, border=True)
-    with chat_container:
-        for message in st.session_state.chat_history:
-            if message["role"] == "user":
-              # Align user messages to the right
-              st.markdown(
+# Task Assistant Section (Now at Bottom)
+st.header("Task Assistant")
+st.write("Ask me anything about your tasks!")
+
+# Display chat history
+chat_container = st.container(height=300, border=True)
+with chat_container:
+    for message in st.session_state.chat_history:
+        if message["role"] == "user":
+            st.markdown(
                 f'<div style="text-align: right;"><b>You:</b> {message["content"]}</div>',
                 unsafe_allow_html=True,
-              )
+            )
+        else:
+            st.markdown(f"**Assistant:** {message['content']}")
 
-            else:
-                st.markdown(f"**Assistant:** {message['content']}")
-    
-    # Chat input with dynamic key to force reset
-    user_input = st.text_input(
-        "Your question:", 
-        placeholder="e.g., What tasks are related to Project A?",
-        key=f"question_input_{st.session_state.question_key}"
-    )
-    
-    if st.button("Send") and user_input:
+# Chat input with dynamic key to force reset
+user_input = st.text_input(
+    "Your question:", 
+    placeholder="e.g., What tasks are related to Project A?",
+    key=f"question_input_{st.session_state.question_key}"
+)
+
+if st.button("Send", key="send_button"):
+    if user_input:
         if st.session_state.chain is None:
             st.error("System not initialized. Please provide your API key.")
         else:
@@ -279,16 +277,16 @@ with col2:
                 except Exception as e:
                     st.error(f"Error generating response: {str(e)}")
 
-    # Add some example questions
-    with st.expander("Example questions you can ask"):
-        st.markdown("""
-        - What tasks are related to Project A?
-        - What should I work on next?
-        - Do I have any reading tasks?
-        - What are my highest priority tasks?
-        - Show me all tasks related to development
-        - What personal development tasks do I have?
-        """)
+# Example questions in a collapsible section
+with st.expander("Example questions you can ask", expanded=False):
+    st.markdown("""
+    - What tasks are related to Project A?
+    - What should I work on next?
+    - Do I have any reading tasks?
+    - What are my highest priority tasks?
+    - Show me all tasks related to development
+    - What personal development tasks do I have?
+    """)
 
 # Footer
 st.divider()
