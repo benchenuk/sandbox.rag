@@ -176,12 +176,25 @@ task_container = st.container(height=300, border=True)
 
 with task_container:
     for i, task in enumerate(filtered_tasks):
-        with st.expander(f"📌 {task['title']}", expanded=False):
-            st.write(f"**Description:** {task['description']}")
-            st.write(f"**Tags:** {task['tags']}")
-            # Convert timestamp to a more readable format
-            timestamp = datetime.fromisoformat(task['timestamp'])
-            st.write(f"**Created:** {timestamp.strftime('%Y-%m-%d %H:%M')}")
+        # Create a unique key for each checkbox
+        checkbox_key = f"task_checkbox_{task['title']}_{i}"
+        # Create a row with checkbox and task title
+        col1, col2 = st.columns([1, 20])
+        with col1:
+            is_completed = st.checkbox("", key=checkbox_key)
+        with col2:
+            # Use regular expander without the pin icon
+            with st.expander(f"{task['title']}", expanded=False):
+                st.write(f"**Description:** {task['description']}")
+                st.write(f"**Tags:** {task['tags']}")
+                # Convert timestamp to a more readable format
+                timestamp = datetime.fromisoformat(task['timestamp'])
+                st.write(f"**Created:** {timestamp.strftime('%Y-%m-%d %H:%M')}")
+                
+                # Add option to mark task as completed
+                if is_completed:
+                    st.success("Task completed!")
+                    # Here you could add code to update the task status in the database
 
 st.divider()
 
