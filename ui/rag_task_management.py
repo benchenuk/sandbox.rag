@@ -155,7 +155,7 @@ def task_management(db, chain_initialize_func):
                         key=f"task_title_{st.session_state.task_title_key}"
                     )
                     task_description = st.text_area(
-                        "Task Description",
+                        "Details",
                         placeholder="Enter task description",
                         key=f"task_description_{st.session_state.task_description_key}"
                     )
@@ -184,19 +184,19 @@ def task_management(db, chain_initialize_func):
                             st.success(f"Task '{task_title}' added successfully!")
                             st.session_state.task_panel_mode = "collapsed"
                             reset_task_inputs()
-                            # No rerun needed
+                            st.rerun()
 
                 if cancel_button:
                     st.session_state.task_panel_mode = "collapsed"
                     reset_task_inputs()
-                    # No rerun needed
+                    st.rerun()
 
             elif st.session_state.task_panel_mode == "edit":
                 # Task editing form
                 task = st.session_state.selected_task
                 with st.form(key="edit_task_form"):
-                    task_title = st.text_input("Task Title", value=task['title'])
-                    task_description = st.text_area("Task Description", value=task['description'])
+                    task_title = st.text_input("Task", value=task['title'])
+                    task_description = st.text_area("Details", value=task['description'])
                     task_tags = st.text_input("Tags (comma-separated)", value=task['tags'])
 
                     col1, col2 = st.columns([0.5, 0.5])
@@ -215,12 +215,12 @@ def task_management(db, chain_initialize_func):
                             st.success(f"Task '{task_title}' updated successfully!")
                             st.session_state.task_panel_mode = "collapsed"
                             st.session_state.selected_task = None
-                            # No rerun needed
+                            st.rerun()
 
                 if cancel_edit:
                     st.session_state.task_panel_mode = "collapsed"
                     st.session_state.selected_task = None
-                    # No rerun needed
+                    st.rerun()
 
             st.divider()
 
