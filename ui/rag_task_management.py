@@ -3,6 +3,7 @@ import streamlit as st
 import logging
 from datetime import datetime
 from ui.rag_utils import reset_task_inputs
+from ui.rag_cache import CacheService
 
 # Configure logging
 logging.basicConfig(
@@ -91,25 +92,23 @@ def task_management(db, chain_initialize_func):
     # Task Management Section
     st.header("Tasks")
 
-    # Filter options
-    filter_options = ["All"]
+    # Use cache
+    cache = CacheService(db)
 
-    # Extract unique project tags from db
+    # Extract unique tags from db
     all_tags = set()
-    tasks = db.get_all_tasks()
+    tasks = cache.get_tasks()
     for task in tasks:
         all_tags.update(task['tags'].split(','))
 
+    # Filter options
+    filter_options = ["All"]
     filter_options.extend(sorted(all_tags))
 
     selected_filter = st.selectbox("Filter by tag:", filter_options)
 
     # Display tasks based on filter
-    filtered_tasks = []
-    if selected_filter == "All":
-        filtered_tasks = db.get_all_tasks()
-    else:
-        filtered_tasks = db.get_tasks_by_tags(selected_filter)
+    filtered_tasks = cache.get_tasks(selected_filter)
 
     # Create a container with fixed height and scrolling
     task_container = st.container(height=300, border=True)

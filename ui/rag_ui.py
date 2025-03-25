@@ -4,6 +4,7 @@ from database.rag_task_db import TaskDatabase
 from rag.rag_system import initialize_rag_system
 from ui.rag_task_management import task_management
 from ui.rag_task_assist import task_assistant
+from ui.rag_cache import CacheService
 from langchain.memory import ConversationBufferMemory
 
 def run_app():
@@ -22,8 +23,10 @@ def run_app():
     # Initialize database
     db = TaskDatabase()
     db.initialize_db()
-    # db.truncate_tables()
-    # db.populate_from_json()
+
+    # Initial cache load
+    cache = CacheService(db)
+    cache.load_cache();
 
     # Main UI layout
     st.title("✅ Sandbox To Do")
@@ -69,3 +72,11 @@ def initialize_session_state():
         st.session_state.task_description_key = 0
     if "task_tags_key" not in st.session_state:
         st.session_state.task_tags_key = 0
+    
+    if 'task_cache' not in st.session_state:
+        st.session_state.task_cache = {
+            'version': 0,
+            'tasks': {},
+            'tags': set(),
+            'loaded': False
+        }
