@@ -10,8 +10,8 @@ def task_assistant(chain):
         chain (ConversationalRetrievalChain): The RAG conversational retrieval chain.
     """
     # Task Assistant Section (Now at Bottom)
-    st.header("Task Assistant")
-    st.write("Ask me anything about your tasks!")
+    st.header("Ask Assistant ")
+    st.write("Ask anything about your tasks!")
 
     # Display chat history
     chat_container = st.container(height=300, border=True)
@@ -19,7 +19,7 @@ def task_assistant(chain):
         for message in st.session_state.chat_history:
             if message["role"] == "user":
                 st.markdown(
-                    f'<div style="text-align: right;"><b>You:</b> {message["content"]}</div>',
+                    f'<div style="text-align: right;"><b>You:</b> {message["content"]}</div><br/>',
                     unsafe_allow_html=True,
                 )
             else:
@@ -27,7 +27,7 @@ def task_assistant(chain):
 
     # Chat input with dynamic key to force reset
     user_input = st.text_input(
-        "Your question:",
+        "Ask:",
         placeholder="e.g., What tasks are related to Project A?",
         key=f"question_input_{st.session_state.question_key}"
     )

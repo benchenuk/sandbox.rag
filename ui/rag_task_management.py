@@ -89,7 +89,7 @@ def task_management(db, chain_initialize_func):
         st.session_state.selected_task = None
 
     # Task Management Section
-    st.header("Your Tasks")
+    st.header("Tasks")
 
     # Filter options
     filter_options = ["All"]
@@ -149,7 +149,7 @@ def task_management(db, chain_initialize_func):
             if st.session_state.task_panel_mode == "add":
                 # Task creation form
                 task_title = st.text_input(
-                    "Task Title",
+                    "Task",
                     placeholder="Enter task title",
                     key=f"task_title_{st.session_state.task_title_key}"
                 )
@@ -164,9 +164,9 @@ def task_management(db, chain_initialize_func):
                     key=f"task_tags_{st.session_state.task_tags_key}"
                 )
 
-                col1, col2 = st.columns([1, 1])
+                col1, col2 = st.columns([0.5, 0.5])
                 with col1:
-                    if st.button("Save Task"):
+                    if st.button("Save", use_container_width=True):
                         if not task_title:
                             st.error("Task title is required!")
                         else:
@@ -182,7 +182,7 @@ def task_management(db, chain_initialize_func):
                                 reset_task_inputs()
                                 st.rerun()
                 with col2:
-                    if st.button("Cancel"):
+                    if st.button("Cancel", use_container_width=True):
                         st.session_state.task_panel_mode = "collapsed"
                         reset_task_inputs()
                         st.rerun()
@@ -197,12 +197,12 @@ def task_management(db, chain_initialize_func):
                 task_tags = st.text_input("Tags (comma-separated)", value=task['tags'])
 
                 # Display the creation timestamp (read-only)
-                timestamp = datetime.fromisoformat(task['timestamp'])
-                st.write(f"**Created:** {timestamp.strftime('%Y-%m-%d %H:%M')}")
+                # timestamp = datetime.fromisoformat(task['timestamp'])
+                # st.write(f"**Created:** {timestamp.strftime('%Y-%m-%d %H:%M')}")
 
-                col1, col2 = st.columns([1, 1])
+                col1, col2 = st.columns([0.5, 0.5])
                 with col1:
-                    if st.button("Save Changes"):
+                    if st.button("Save", use_container_width=True):
                         if not task_title:
                             st.error("Task title is required!")
                         else:
@@ -214,7 +214,7 @@ def task_management(db, chain_initialize_func):
                                 st.session_state.selected_task = None
                                 st.rerun()
                 with col2:
-                    if st.button("Cancel"):
+                    if st.button("Cancel", use_container_width=True):
                         st.session_state.task_panel_mode = "collapsed"
                         st.session_state.selected_task = None
                         st.rerun()

@@ -26,7 +26,7 @@ def run_app():
     # db.populate_from_json()
 
     # Main UI layout
-    st.title("✅ Task Recommendation System")
+    st.title("✅ Sandbox To Do")
 
     # Initialize the RAG system if not already done
     if st.session_state.chain is None:
