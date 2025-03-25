@@ -91,6 +91,7 @@ class TaskDatabase:
         cursor = self.conn.cursor()
         cursor.execute("SELECT title, description, tags, timestamp, id FROM tasks")
         rows = cursor.fetchall()
+        logging.info(f"Retrieved {len(rows)} tasks from the database")
         return [{'title': row[0], 'description': row[1], 'tags': row[2], 'timestamp': row[3], 'id': row[4]} for row in rows]
 
     def get_tasks_by_tags(self, tag):
@@ -106,6 +107,7 @@ class TaskDatabase:
         cursor = self.conn.cursor()
         cursor.execute("SELECT title, description, tags, timestamp, id FROM tasks WHERE tags LIKE ?", ('%' + tag + '%',))
         rows = cursor.fetchall()
+        logging.info(f"Retrieved {len(rows)} tasks by tags from the database")
         return [{'title': row[0], 'description': row[1], 'tags': row[2], 'timestamp': row[3], 'id': row[4]} for row in rows]
 
    

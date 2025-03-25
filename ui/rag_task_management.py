@@ -119,18 +119,17 @@ def task_management(db, chain_initialize_func):
             st.info("No tasks found.")
 
         for i, task in enumerate(filtered_tasks):
-            # Create a unique key for each checkbox
             checkbox_key = f"task_checkbox_{task['title']}_{i}"
-            # Create a row with checkbox and task title
             col1, col2 = st.columns([1, 20])
             with col1:
                 is_completed = st.checkbox("", key=checkbox_key)
             with col2:
-                # Replace expander with clickable button
                 if st.button(f"{task['title']}", key=f"task_title_{task['title']}_{i}", use_container_width=True):
+                    if is_debounced():
+                        st.stop()
+                        
                     st.session_state.selected_task = task
-                    st.session_state.task_panel_mode = "edit"  # Changed from "view" to "edit"
-                    st.rerun()
+                    st.session_state.task_panel_mode = "edit"
 
             # Show completion message if needed
             if is_completed:
@@ -139,84 +138,104 @@ def task_management(db, chain_initialize_func):
 
     # Add Task Section - Replace with button
     if st.button("+ Add Task", use_container_width=True, help="Click to create new task"):
+        if is_debounced():
+            st.stop()
+            
         st.session_state.task_panel_mode = "add"
-        reset_task_inputs()  # Clear any previous input
-        st.rerun()
+        reset_task_inputs()
 
     # Unified Task Panel
     if st.session_state.task_panel_mode != "collapsed":
         with st.container(border=True):
             if st.session_state.task_panel_mode == "add":
                 # Task creation form
-                task_title = st.text_input(
-                    "Task",
-                    placeholder="Enter task title",
-                    key=f"task_title_{st.session_state.task_title_key}"
-                )
-                task_description = st.text_area(
-                    "Task Description",
-                    placeholder="Enter task description",
-                    key=f"task_description_{st.session_state.task_description_key}"
-                )
-                task_tags = st.text_input(
-                    "Tags (comma-separated)",
-                    placeholder="e.g., Project A, development, frontend",
-                    key=f"task_tags_{st.session_state.task_tags_key}"
-                )
+                with st.form(key="add_task_form"):
+                    task_title = st.text_input(
+                        "Task",
+                        placeholder="Enter task title",
+                        key=f"task_title_{st.session_state.task_title_key}"
+                    )
+                    task_description = st.text_area(
+                        "Task Description",
+                        placeholder="Enter task description",
+                        key=f"task_description_{st.session_state.task_description_key}"
+                    )
+                    task_tags = st.text_input(
+                        "Tags (comma-separated)",
+                        placeholder="e.g., Project A, development, frontend",
+                        key=f"task_tags_{st.session_state.task_tags_key}"
+                    )
 
-                col1, col2 = st.columns([0.5, 0.5])
-                with col1:
-                    if st.button("Save", use_container_width=True):
-                        if not task_title:
-                            st.error("Task title is required!")
-                        else:
-                            # Use empty string for description if not provided
-                            description = task_description if task_description else ""
-                            # Use "general" as default tag if none provided
-                            tags = task_tags if task_tags else "general"
+                    col1, col2 = st.columns([0.5, 0.5])
+                    with col1:
+                        submit_button = st.form_submit_button("Save", use_container_width=True)
+                    with col2:
+                        cancel_button = st.form_submit_button("Cancel", use_container_width=True)
 
-                            success = add_new_task(db, task_title, description, tags, chain_initialize_func)
-                            if success:
-                                st.success(f"Task '{task_title}' added successfully!")
-                                st.session_state.task_panel_mode = "collapsed"
-                                reset_task_inputs()
-                                st.rerun()
-                with col2:
-                    if st.button("Cancel", use_container_width=True):
-                        st.session_state.task_panel_mode = "collapsed"
-                        reset_task_inputs()
-                        st.rerun()
+                # Handle form submission outside the form
+                if submit_button:
+                    if not task_title:
+                        st.error("Task title is required!")
+                    else:
+                        description = task_description if task_description else ""
+                        tags = task_tags if task_tags else "general"
+
+                        success = add_new_task(db, task_title, description, tags, chain_initialize_func)
+                        if success:
+                            st.success(f"Task '{task_title}' added successfully!")
+                            st.session_state.task_panel_mode = "collapsed"
+                            reset_task_inputs()
+                            # No rerun needed
+
+                if cancel_button:
+                    st.session_state.task_panel_mode = "collapsed"
+                    reset_task_inputs()
+                    # No rerun needed
 
             elif st.session_state.task_panel_mode == "edit":
-                # Task editing interface (replacing the view interface)
+                # Task editing form
                 task = st.session_state.selected_task
+                with st.form(key="edit_task_form"):
+                    task_title = st.text_input("Task Title", value=task['title'])
+                    task_description = st.text_area("Task Description", value=task['description'])
+                    task_tags = st.text_input("Tags (comma-separated)", value=task['tags'])
 
-                # Pre-fill form with existing task data
-                task_title = st.text_input("Task Title", value=task['title'])
-                task_description = st.text_area("Task Description", value=task['description'])
-                task_tags = st.text_input("Tags (comma-separated)", value=task['tags'])
+                    col1, col2 = st.columns([0.5, 0.5])
+                    with col1:
+                        submit_edit = st.form_submit_button("Save", use_container_width=True)
+                    with col2:
+                        cancel_edit = st.form_submit_button("Cancel", use_container_width=True)
 
-                # Display the creation timestamp (read-only)
-                # timestamp = datetime.fromisoformat(task['timestamp'])
-                # st.write(f"**Created:** {timestamp.strftime('%Y-%m-%d %H:%M')}")
+                # Handle form submission outside the form
+                if submit_edit:
+                    if not task_title:
+                        st.error("Task title is required!")
+                    else:
+                        success = update_task(db, task['id'], task_title, task_description, task_tags, chain_initialize_func)
+                        if success:
+                            st.success(f"Task '{task_title}' updated successfully!")
+                            st.session_state.task_panel_mode = "collapsed"
+                            st.session_state.selected_task = None
+                            # No rerun needed
 
-                col1, col2 = st.columns([0.5, 0.5])
-                with col1:
-                    if st.button("Save", use_container_width=True):
-                        if not task_title:
-                            st.error("Task title is required!")
-                        else:
-                            # Update the task
-                            success = update_task(db, task['id'], task_title, task_description, task_tags, chain_initialize_func)
-                            if success:
-                                st.success(f"Task '{task_title}' updated successfully!")
-                                st.session_state.task_panel_mode = "collapsed"
-                                st.session_state.selected_task = None
-                                st.rerun()
-                with col2:
-                    if st.button("Cancel", use_container_width=True):
-                        st.session_state.task_panel_mode = "collapsed"
-                        st.session_state.selected_task = None
-                        st.rerun()
+                if cancel_edit:
+                    st.session_state.task_panel_mode = "collapsed"
+                    st.session_state.selected_task = None
+                    # No rerun needed
 
             st.divider()
+
+def is_debounced():
+    """
+    Prevent rapid successive actions by checking time since last action.
+    Returns True if action should be ignored, False otherwise.
+    """
+    if 'last_action_time' not in st.session_state:
+        st.session_state.last_action_time = datetime.now()
+        return False
+        
+    if (datetime.now() - st.session_state.last_action_time).total_seconds() < 1:
+        return True
+    
+    st.session_state.last_action_time = datetime.now()
+    return False
