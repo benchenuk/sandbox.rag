@@ -184,6 +184,7 @@ def task_management(db, chain_initialize_func):
                             st.success(f"Task '{task_title}' added successfully!")
                             st.session_state.task_panel_mode = "collapsed"
                             reset_task_inputs()
+                            cache.invalidate_cache()
                             st.rerun()
 
                 if cancel_button:
@@ -215,6 +216,7 @@ def task_management(db, chain_initialize_func):
                             st.success(f"Task '{task_title}' updated successfully!")
                             st.session_state.task_panel_mode = "collapsed"
                             st.session_state.selected_task = None
+                            cache.invalidate_cache()
                             st.rerun()
 
                 if cancel_edit:

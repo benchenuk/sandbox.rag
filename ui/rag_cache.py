@@ -18,7 +18,10 @@ class CacheService:
     
     def load_cache(self):
         """Load/reload cache from DB"""
-        if not st.session_state.task_cache['loaded']:
+        current_cache_version = self.db.get_cache_version()
+
+        if not st.session_state.task_cache['loaded'] or \
+            st.session_state.task_cache['version'] != current_cache_version:
             tasks = self.db.get_all_tasks()
             st.session_state.task_cache['tasks'] = {t['id']: t for t in tasks}
             st.session_state.task_cache['version'] += 1
