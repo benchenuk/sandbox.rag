@@ -27,9 +27,11 @@ class TaskDatabase:
         Args:
             db_name (str): The name of the database file (default: "tasks.db").
         """
+        self.logger = logging.getLogger(__name__)
         self.db_name = db_name
         self.conn = None
-        self.logger = logging.getLogger(__name__)
+
+        self._current_cache_version = 1  # Add version tracking attribute
 
     def initialize_db(self):
         """
@@ -46,13 +48,25 @@ class TaskDatabase:
             timestamp TEXT
         )
         """)
+
+        # Add cache version table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS cache_versions (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                version INTEGER NOT NULL DEFAULT 1
+            )
+        """)
+        cursor.execute("""
+            INSERT OR IGNORE INTO cache_versions (id, version) 
+            VALUES (1, 1)
+        """)
         self.conn.commit()
         
         # Check configuration for repopulation
         if self._should_repopulate():
             self.truncate_tables()
             self.populate_from_json("todo.rag.test_data.json")
-    
+
     def _should_repopulate(self):
         """
         Checks configuration to determine if the database should be repopulated.
@@ -66,6 +80,47 @@ class TaskDatabase:
         config.read(config_path)
         return config.getboolean('DATABASE', 'REPOPULATE_DB', fallback=False)
 
+    def get_cache_version(self):
+        """Retrieve current cache version from DB"""
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT version FROM cache_versions WHERE id = 1")
+        return cursor.fetchone()[0]
+
+    def _increment_cache_version(self):
+        """Atomically increment cache version"""
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            UPDATE cache_versions 
+            SET version = version + 1 
+            WHERE id = 1
+        """)
+        self.logger.info("Incrementing cache version");
+        self.conn.commit()
+        return cursor.rowcount > 0
+
+    def version_aware(original_method):
+        """Decorator for version-controlled write operations"""
+        def wrapper(self, *args, **kwargs):
+            try:
+                # Start transaction
+                self.conn.execute("BEGIN")
+                
+                # Execute original method
+                result = original_method(self, *args, **kwargs)
+                
+                # Only increment version if operation succeeded
+                if result is not None and result is not False:
+                    self._increment_cache_version()
+                
+                self.conn.commit()
+                return result
+            except Exception as e:
+                self.conn.rollback()
+                self.logger.error(f"Versioned operation failed: {e}")
+                raise
+        return wrapper
+
+    @version_aware
     def add_task(self, task):
         """
         Adds a new task to the database.
@@ -75,11 +130,17 @@ class TaskDatabase:
                          'tags' (list of strings), and 'timestamp' (ISO 8601 format) keys.
         """
         cursor = self.conn.cursor()
-        cursor.execute("""
-            INSERT INTO tasks (title, description, tags, timestamp)
-            VALUES (?, ?, ?, ?)
-        """, (task['title'], task['description'], ','.join(task['tags']), task['timestamp']))
-        self.conn.commit()
+        try:
+            cursor.execute("""
+                INSERT INTO tasks (title, description, tags, timestamp)
+                VALUES (?, ?, ?, ?)
+            """, (task['title'], task['description'], ','.join(task['tags']), task['timestamp']))
+            self.conn.commit()
+            # Return the inserted row ID
+            return cursor.lastrowid
+        except sqlite3.Error as e:
+            self.logger.error(f"Error adding task: {e}")
+            return None
 
     def get_all_tasks(self):
         """
@@ -110,7 +171,7 @@ class TaskDatabase:
         logging.info(f"Retrieved {len(rows)} tasks by tags from the database")
         return [{'title': row[0], 'description': row[1], 'tags': row[2], 'timestamp': row[3], 'id': row[4]} for row in rows]
 
-   
+    @version_aware
     def update_task(self, task_id, task):
         """
         Updates an existing task in the database.
@@ -140,9 +201,19 @@ class TaskDatabase:
                 task_id
             ))
             self.conn.commit()
-            return cursor.rowcount > 0
+            
+            if cursor.rowcount > 0:
+                # Return full task object with updated values
+                return {
+                    'id': task_id,
+                    'title': task['title'],
+                    'description': task['description'],
+                    'tags': task['tags'],
+                    'timestamp': task['timestamp']
+                }
+            return False
         except sqlite3.Error as e:
-            print(f"Error updating task: {e}")
+            self.logger.error(f"Error updating task: {e}")
             return False
 
     def truncate_tables(self):
