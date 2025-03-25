@@ -22,8 +22,8 @@ def run_app():
     # Initialize database
     db = TaskDatabase()
     db.initialize_db()
-    db.truncate_tables()
-    db.populate_from_json()
+    # db.truncate_tables()
+    # db.populate_from_json()
 
     # Main UI layout
     st.title("✅ Task Recommendation System")

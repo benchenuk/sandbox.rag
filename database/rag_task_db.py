@@ -1,7 +1,20 @@
 # database/rag_task_db.py
 import sqlite3
 import json
+import logging
+import configparser
 from datetime import datetime
+from pathlib import Path
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        #logging.FileHandler('task_database.log'),
+        logging.StreamHandler()
+    ]
+)
 
 class TaskDatabase:
     """
@@ -16,6 +29,7 @@ class TaskDatabase:
         """
         self.db_name = db_name
         self.conn = None
+        self.logger = logging.getLogger(__name__)
 
     def initialize_db(self):
         """
@@ -24,15 +38,33 @@ class TaskDatabase:
         self.conn = sqlite3.connect(self.db_name)
         cursor = self.conn.cursor()
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS tasks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT,
-                description TEXT,
-                tags TEXT,
-                timestamp TEXT
-            )
+        CREATE TABLE IF NOT EXISTS tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT,
+            description TEXT,
+            tags TEXT,
+            timestamp TEXT
+        )
         """)
         self.conn.commit()
+        
+        # Check configuration for repopulation
+        if self._should_repopulate():
+            self.truncate_tables()
+            self.populate_from_json("todo.rag.test_data.json")
+    
+    def _should_repopulate(self):
+        """
+        Checks configuration to determine if the database should be repopulated.
+        """
+        config = configparser.ConfigParser()
+        config_path = Path(__file__).parent.parent / 'config.ini'
+        
+        if not config_path.exists():
+            return False
+            
+        config.read(config_path)
+        return config.getboolean('DATABASE', 'REPOPULATE_DB', fallback=False)
 
     def add_task(self, task):
         """
@@ -126,6 +158,7 @@ class TaskDatabase:
         Args:
             file_path (str): The path to the JSON file (default: "todo.rag.test_data.json").
         """
+        self.logger.info("Populating tasks from JSON file: %s", file_path);
         try:
             with open(file_path, 'r') as f:
                 data = json.load(f)

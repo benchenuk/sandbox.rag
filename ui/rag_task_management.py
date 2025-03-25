@@ -1,7 +1,20 @@
 # ui/rag_task_management.py
 import streamlit as st
+import logging
 from datetime import datetime
 from ui.rag_utils import reset_task_inputs
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        # logging.FileHandler('task_database.log'),
+        logging.StreamHandler()
+    ]
+)
+
+logger = logging.getLogger(__name__)
 
 def add_new_task(db, title, description, tags_string, chain_initialize_func):
     """
@@ -57,7 +70,8 @@ def update_task(db, task_id, title, description, tags_string, chain_initialize_f
     }
 
     # Update the task in DB
-    db.update_task(task_id, updated_task)
+    updated = db.update_task(task_id, updated_task)
+    logger.info("Task with ID %s updated: %s.", task_id, updated)
 
     # Reinitialize the RAG system with updated data
     st.session_state.chain, _ = chain_initialize_func()
