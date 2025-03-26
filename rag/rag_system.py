@@ -1,7 +1,7 @@
 # rag/rag_system.py
 import os
-import google.generativeai as genai
 import streamlit as st
+import google.generativeai as genai
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain.vectorstores import FAISS
 from langchain.chains import ConversationalRetrievalChain
