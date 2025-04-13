@@ -1,43 +1,27 @@
-# database/rag_task_db.py
 import sqlite3
 import json
 import logging
-import configparser
 from datetime import datetime
 from pathlib import Path
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        #logging.FileHandler('task_database.log'),
-        logging.StreamHandler()
-    ]
-)
-
 class TaskDatabase:
     """
-    Manages the task database, including connection, schema, and operations.
+    Manages task-related database operations.
     """
-    def __init__(self, db_name="tasks.db"):
+    def __init__(self, conn):
         """
-        Initializes the TaskDatabase with a specified database name.
+        Initializes the TaskDatabase with a database connection.
 
         Args:
-            db_name (str): The name of the database file (default: "tasks.db").
+            conn: SQLite database connection
         """
         self.logger = logging.getLogger(__name__)
-        self.db_name = db_name
-        self.conn = None
+        self.conn = conn
 
-        self._current_cache_version = 1  # Add version tracking attribute
-
-    def initialize_db(self):
+    def initialize_tables(self):
         """
-        Initializes the database and creates the 'tasks' table if it doesn't exist.
+        Creates the tasks and cache_versions tables if they don't exist.
         """
-        self.conn = sqlite3.connect(self.db_name)
         cursor = self.conn.cursor()
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS tasks (
@@ -49,7 +33,6 @@ class TaskDatabase:
         )
         """)
 
-        # Add cache version table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS cache_versions (
                 id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -57,28 +40,10 @@ class TaskDatabase:
             )
         """)
         cursor.execute("""
-            INSERT OR IGNORE INTO cache_versions (id, version) 
+            INSERT OR IGNORE INTO cache_versions (id, version)
             VALUES (1, 1)
         """)
         self.conn.commit()
-        
-        # Check configuration for repopulation
-        if self._should_repopulate():
-            self.truncate_tables()
-            self.populate_from_json("todo.rag.test_data.json")
-
-    def _should_repopulate(self):
-        """
-        Checks configuration to determine if the database should be repopulated.
-        """
-        config = configparser.ConfigParser()
-        config_path = Path(__file__).parent.parent / 'config.ini'
-        
-        if not config_path.exists():
-            return False
-            
-        config.read(config_path)
-        return config.getboolean('DATABASE', 'REPOPULATE_DB', fallback=False)
 
     def get_cache_version(self):
         """Retrieve current cache version from DB"""
@@ -218,35 +183,26 @@ class TaskDatabase:
 
     def truncate_tables(self):
         """
-        Truncates the 'tasks' table (removes all rows).
+        Truncates the tasks table.
         """
         cursor = self.conn.cursor()
         cursor.execute("DELETE FROM tasks")
         self.conn.commit()
 
-    def populate_from_json(self, file_path="todo.rag.test_data.json"):
+    def populate_from_json(self, file_path):
         """
-        Populates the 'tasks' table from a JSON file.
+        Populates the tasks table from a JSON file.
 
         Args:
-            file_path (str): The path to the JSON file (default: "todo.rag.test_data.json").
+            file_path (str): Path to the JSON file containing task data
         """
-        self.logger.info("Populating tasks from JSON file: %s", file_path);
+        self.logger.info("Populating tasks from JSON file: %s", file_path)
         try:
             with open(file_path, 'r') as f:
                 data = json.load(f)
-                # Iterate through the top-level array directly
                 for task in data:
                     self.add_task(task)
         except FileNotFoundError:
-            print(f"Error: JSON file not found at {file_path}")
+            self.logger.error(f"JSON file not found at {file_path}")
         except json.JSONDecodeError:
-            print(f"Error: Invalid JSON format in {file_path}")
-
-        
-    def __del__(self):
-        """
-        Close db connection
-        """
-        if self.conn:
-            self.conn.close()
+            self.logger.error(f"Invalid JSON format in {file_path}")

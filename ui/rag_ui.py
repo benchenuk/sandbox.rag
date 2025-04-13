@@ -1,43 +1,57 @@
 # ui/rag_ui.py
 import streamlit as st
 from database.rag_task_db import TaskDatabase
+from database.rag_db import RAGDatabase
 from rag.rag_system import initialize_rag_system
 from ui.rag_task_management import task_management
 from ui.rag_task_assist import task_assistant
 from ui.rag_cache import CacheService
 from langchain.memory import ConversationBufferMemory
 
+import logging
+logger = logging.getLogger(__name__)
+
 def run_app():
     """Main function to run the Streamlit application."""
 
-    # Page configuration
-    st.set_page_config(
-        page_title="Task Recommendation System",
-        page_icon="✅",
-        layout="centered"
-    )
+    st.set_page_config(page_title="Sandbox To Do", layout="wide")
 
-    # Initialize session state
     initialize_session_state()
 
-    # Initialize database
-    db = TaskDatabase()
-    db.initialize_db()
+    # --- Database Initialization ---
+    if 'rag_db' not in st.session_state:
+        try:
+            st.session_state.rag_db = RAGDatabase()
+            st.session_state.rag_db.initialize_db()
+            logger.info("Database initialized successfully.")
+        except Exception as e:
+            logger.error(f"Failed to initialize database: {e}")
+            st.error(f"Application failed to start: {e}")
+            st.stop()
 
-    # Initial cache load
-    cache = CacheService(db)
-    cache.load_cache();
+    rag_db = st.session_state.rag_db
+
+    # --- Authentication Setup ---
+    credentials = rag_db.get_authenticator_credentials()
+
+    # Get task database instance
+    task_db = rag_db.get_task_db()
+
+    # Initialize Cache Service
+    if 'cache_service' not in st.session_state:
+        st.session_state.cache_service = CacheService(task_db)
+    st.session_state.cache_service.load_cache()
 
     # Main UI layout
     st.title("✅ Sandbox To Do")
 
     # Initialize the RAG system if not already done
     if st.session_state.chain is None:
-        st.session_state.chain, _ = initialize_rag_system(db, st.session_state.memory)
+        st.session_state.chain, _ = initialize_rag_system(task_db, st.session_state.memory)
         st.session_state.task_data = _
 
     # Display and manage tasks
-    task_management(db, lambda: initialize_rag_system(db, st.session_state.memory))
+    task_management(task_db, lambda: initialize_rag_system(task_db, st.session_state.memory))
 
     # Task assistant
     task_assistant(st.session_state.chain)
