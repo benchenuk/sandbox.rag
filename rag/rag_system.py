@@ -71,6 +71,7 @@ def initialize_rag_system(db, memory):
 
     # Initialize LLM
     llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.2)
+    # gemini-2.5-pro-exp-03-2
 
     # Create retrieval chain
     retrieval_chain = ConversationalRetrievalChain.from_llm(
