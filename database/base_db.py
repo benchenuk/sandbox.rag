@@ -1,7 +1,6 @@
 # database/base_db.py
 import sqlite3
 import logging
-import configparser
 from pathlib import Path
 
 class BaseDatabase:
@@ -29,7 +28,7 @@ class BaseDatabase:
         """
         if self.conn is None:
             try:
-                self.conn = sqlite3.connect(self.db_name)
+                self.conn = sqlite3.connect(self.db_name, check_same_thread=False) # TODO check thread
                 self.logger.info(f"Database connection established to {self.db_name}")
                 return True
             except sqlite3.Error as e:
@@ -55,40 +54,6 @@ class BaseDatabase:
             if not self.connect():
                 return None # Connection failed
         return self.conn
-
-    def _should_repopulate(self):
-        """
-        Checks configuration file (config.ini) to determine if the 
-        database should be repopulated on initialization.
-        
-        Returns:
-            bool: True if repopulation is configured, False otherwise.
-        """
-        config = configparser.ConfigParser()
-        # Assume config.ini is in the parent directory of the 'database' directory
-        config_path = Path(__file__).parent.parent / 'config.ini' 
-        
-        if not config_path.exists():
-            self.logger.warning(f"Configuration file not found at {config_path}. Defaulting to no repopulation.")
-            return False
-        
-        try:
-            config.read(config_path)
-            # Ensure DATABASE section and REPOPULATE_DB key exist
-            if 'DATABASE' in config and 'REPOPULATE_DB' in config['DATABASE']:
-                 repopulate = config.getboolean('DATABASE', 'REPOPULATE_DB', fallback=False)
-                 self.logger.info(f"Repopulate flag read from config: {repopulate}")
-                 return repopulate
-            else:
-                 self.logger.warning("'DATABASE' section or 'REPOPULATE_DB' key not found in config.ini. Defaulting to no repopulation.")
-                 return False
-        except configparser.Error as e:
-            self.logger.error(f"Error reading configuration file {config_path}: {e}")
-            return False
-        except ValueError as e:
-             self.logger.error(f"Error parsing REPOPULATE_DB value in {config_path}: {e}. Should be True/False.")
-             return False
-
 
     def __del__(self):
         """Ensures the database connection is closed when the object is destroyed."""

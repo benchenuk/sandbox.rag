@@ -2,7 +2,7 @@ import sqlite3
 import json
 import logging
 from pathlib import Path
-from streamlit_authenticator import Authenticate
+from streamlit_authenticator.utilities.hasher import Hasher
 
 class UserDatabase:
     """
@@ -43,7 +43,7 @@ class UserDatabase:
         """
         cursor = self.conn.cursor()
         try:
-            hashed_password = Authenticate.hash_password(user_data['password'])
+            hashed_password = Hasher.hash(user_data['password'])
             cursor.execute("""
             INSERT INTO users (username, email, name, hashed_password)
             VALUES (?, ?, ?, ?)

@@ -3,6 +3,7 @@ import streamlit as st
 from database.rag_task_db import TaskDatabase
 from database.rag_db import RAGDatabase
 from rag.rag_system import initialize_rag_system
+from .rag_auth import setup_authenticator
 from ui.rag_task_management import task_management
 from ui.rag_task_assist import task_assistant
 from ui.rag_cache import CacheService
@@ -33,6 +34,16 @@ def run_app():
 
     # --- Authentication Setup ---
     credentials = rag_db.get_authenticator_credentials()
+
+    authenticator = setup_authenticator(rag_db.conn)
+    authenticator.login('main')
+
+    if st.session_state["authentication_status"] is False:
+        st.error('Username/password is incorrect')
+        st.stop() # Stop execution if login fails
+    elif st.session_state["authentication_status"] is None:
+        st.warning('Please enter your username and password')
+        st.stop() # Stop execution until logged in
 
     # Get task database instance
     task_db = rag_db.get_task_db()
