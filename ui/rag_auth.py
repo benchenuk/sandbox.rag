@@ -44,9 +44,7 @@ def setup_authenticator(db_connection):
             credentials,
             cookie_config['name'],
             cookie_config['key'],
-            cookie_config['expiry_days'],
-            # Pre-authorized emails (optional, could also be fetched from DB)
-            {'emails': []}
+            cookie_config['expiry_days']
         )
         logger.info("Streamlit Authenticator initialized successfully.")
         return authenticator
