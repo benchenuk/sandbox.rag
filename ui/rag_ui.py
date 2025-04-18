@@ -1,9 +1,12 @@
+
 # ui/rag_ui.py
 import streamlit as st
 from database.rag_task_db import TaskDatabase
-from database.rag_db import RAGDatabase
+from database.rag_db import DatabaseHelper
 from rag.rag_system import initialize_rag_system
-from .rag_auth import setup_authenticator
+# from .rag_auth import setup_authenticator
+from ui.rag_auth import authenticate_login
+from ui.rag_auth import initialize_authentication_session
 from ui.rag_task_management import task_management
 from ui.rag_task_assist import task_assistant
 from ui.rag_cache import CacheService
@@ -18,25 +21,16 @@ def run_app():
     st.set_page_config(page_title="Sandbox To Do", layout="wide")
 
     initialize_session_state()
+    initialize_authentication_session()
 
     # --- Database Initialization ---
-    if 'rag_db' not in st.session_state:
-        try:
-            st.session_state.rag_db = RAGDatabase()
-            st.session_state.rag_db.initialize_db()
-            logger.info("Database initialized successfully.")
-        except Exception as e:
-            logger.error(f"Failed to initialize database: {e}")
-            st.error(f"Application failed to start: {e}")
-            st.stop()
+    db_helper = DatabaseHelper()
+    db_helper.initialize_db()
 
-    rag_db = st.session_state.rag_db
-
-    # --- Authentication Setup ---
-    credentials = rag_db.get_authenticator_credentials()
-
-    authenticator = setup_authenticator(rag_db.conn)
-    authenticator.login('main')
+    # --- Authentication Check ---
+    if st.session_state.get("authentication_status") is None:
+        authenticate_login()
+        st.stop()
 
     if st.session_state["authentication_status"] is False:
         st.error('Username/password is incorrect')
@@ -45,8 +39,9 @@ def run_app():
         st.warning('Please enter your username and password')
         st.stop() # Stop execution until logged in
 
+
     # Get task database instance
-    task_db = rag_db.get_task_db()
+    task_db = TaskDatabase(db_helper.conn)
 
     # Initialize Cache Service
     if 'cache_service' not in st.session_state:
@@ -54,7 +49,7 @@ def run_app():
     st.session_state.cache_service.load_cache()
 
     # Main UI layout
-    st.title("✅ Sandbox To Do")
+    # st.title("✅ Sandbox To Do")
 
     # Initialize the RAG system if not already done
     if st.session_state.chain is None:

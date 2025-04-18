@@ -44,6 +44,7 @@ class TaskDatabase:
             VALUES (1, 1)
         """)
         self.conn.commit()
+        self.logger.info("Task tables initialized.")
 
     def get_cache_version(self):
         """Retrieve current cache version from DB"""

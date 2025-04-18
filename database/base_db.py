@@ -21,21 +21,12 @@ class BaseDatabase:
         self.logger.info(f"BaseDatabase initialized for {db_name}")
 
     def connect(self):
-        """
-        Establishes the database connection.
-        Returns:
-            bool: True if connection successful, False otherwise.
-        """
+        # throw exception if connection failed, caller must handle failure explicitly
         if self.conn is None:
-            try:
-                self.conn = sqlite3.connect(self.db_name, check_same_thread=False) # TODO check thread
-                self.logger.info(f"Database connection established to {self.db_name}")
-                return True
-            except sqlite3.Error as e:
-                self.logger.error(f"Error connecting to database {self.db_name}: {e}")
-                self.conn = None # Ensure conn is None if connection failed
-                return False
-        return True # Already connected
+            self.conn = sqlite3.connect(self.db_name, check_same_thread=True) # TODO check thread
+            self.logger.info(f"Database connection established to {self.db_name}")
+            return self.conn
+
 
     def close(self):
         """Closes the database connection if it is open."""
@@ -51,10 +42,9 @@ class BaseDatabase:
             sqlite3.Connection or None: The connection object or None if connection fails.
         """
         if self.conn is None:
-            if not self.connect():
-                return None # Connection failed
+            return self.connect()
         return self.conn
 
-    def __del__(self):
-        """Ensures the database connection is closed when the object is destroyed."""
-        self.close()
+    # def __del__(self):
+    #     """Ensures the database connection is closed when the object is destroyed."""
+    #     self.close()
