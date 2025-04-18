@@ -7,7 +7,7 @@ from .base_db import BaseDatabase
 from .rag_task_db import TaskDatabase
 from .rag_user_db import UserDatabase
 
-class RAGDatabase(BaseDatabase):
+class DatabaseHelper:
     """
     Main entry point for the application database, coordinating 
     task and user database operations with shared connection.
@@ -16,9 +16,11 @@ class RAGDatabase(BaseDatabase):
         """
         Initializes the RAGDatabase with a specified database name.
         """
-        super().__init__(db_name)  # Initialize BaseDatabase
-        self.task_db = None
-        self.user_db = None
+        # super().__init__(db_name)  # Initialize BaseDatabase
+        self.base_db = BaseDatabase(db_name)
+        # self.conn = self.base_db.connect()
+        # self.task_db = None
+        # self.user_db = None
         self.logger = logging.getLogger(__name__)
 
     def initialize_db(self):
@@ -28,49 +30,35 @@ class RAGDatabase(BaseDatabase):
         2. Initializes specialized database handlers
         3. Handles repopulation if configured
         """
-        # Connect using base class method
-        if not self.connect():
-            self.logger.error("Failed to establish database connection")
-            raise ConnectionError(f"Could not connect to database: {self.db_name}")
+        
+        # Create new connection
+        self.conn = self.base_db.connect()
         
         # Create specialized database handlers with shared connection
-        self.task_db = TaskDatabase(self.conn)
-        self.user_db = UserDatabase(self.conn)
+        task_db = TaskDatabase(self.conn)
+        user_db = UserDatabase(self.conn)
         
         # Initialize tables
-        self.task_db.initialize_tables()
-        self.user_db.initialize_tables()
+        task_db.initialize_tables()
+        user_db.initialize_tables()
         
         # Check if repopulation is needed (using base method)
         if self._should_repopulate():
             self.logger.info("Repopulation flag is set. Truncating and populating data.")
             
             # Truncate all tables
-            self.task_db.truncate_tables()
-            self.user_db.truncate_tables()
+            task_db.truncate_tables()
+            user_db.truncate_tables()
             
             # Populate from JSON files
-            self.task_db.populate_from_json("todo.rag.test_data.json")
-            self.user_db.populate_from_json("users.json")
+            task_db.populate_from_json("todo.rag.test_data.json")
+            user_db.populate_from_json("users.json")
             
             self.logger.info("Database repopulation complete.")
         
-    def get_task_db(self):
-        """Returns the TaskDatabase instance."""
-        return self.task_db
+        # Done database initialization
+        # self.base_db.close()
         
-    def get_user_db(self):
-        """Returns the UserDatabase instance."""
-        return self.user_db
-        
-    def get_authenticator_credentials(self):
-        """
-        Convenience method to get credentials for Streamlit Authenticator.
-        """
-        if self.user_db:
-            return self.user_db.get_authenticator_credentials()
-        return {'usernames': {}}  # Empty credentials if user_db not initialized
-    
     def _should_repopulate(self):
         """
         Checks configuration file (config.ini) to determine if the 
@@ -80,7 +68,6 @@ class RAGDatabase(BaseDatabase):
             bool: True if repopulation is configured, False otherwise.
         """
         config = configparser.ConfigParser()
-        # Assume config.ini is in the parent directory of the 'database' directory
         config_path = Path(__file__).parent.parent / 'config.ini' 
         
         if not config_path.exists():

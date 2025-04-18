@@ -8,15 +8,15 @@ class UserDatabase:
     """
     Manages user-specific database operations with a shared connection.
     """
-    def __init__(self, connection):
+    def __init__(self, conn):
         """
         Initializes the UserDatabase with a shared database connection.
 
         Args:
-            connection: An active SQLite database connection
+            conn: An active SQLite database connection
         """
-        self.conn = connection
         self.logger = logging.getLogger(__name__)
+        self.conn = conn
 
     def initialize_tables(self):
         """
