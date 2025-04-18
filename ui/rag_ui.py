@@ -46,7 +46,7 @@ def run_app():
     # Initialize Cache Service
     if 'cache_service' not in st.session_state:
         st.session_state.cache_service = CacheService(task_db)
-    st.session_state.cache_service.load_cache()
+        st.session_state.cache_service.reset_cache_version()
 
     # Main UI layout
     # st.title("✅ Sandbox To Do")

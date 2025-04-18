@@ -64,6 +64,18 @@ class TaskDatabase:
         self.conn.commit()
         return cursor.rowcount > 0
 
+    def reset_cache_version(self):
+        """Reset cache version"""
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            UPDATE cache_versions 
+            SET version = 0 
+            WHERE id = 1
+        """)
+        self.logger.info("Cache version reset to 0")
+        self.conn.commit()
+        return cursor.rowcount > 0
+
     def version_aware(original_method):
         """Decorator for version-controlled write operations"""
         def wrapper(self, *args, **kwargs):

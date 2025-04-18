@@ -1,9 +1,11 @@
 # ui/rag_cache.py
 import streamlit as st
+import logging
 
 class CacheService:
     """Central cache management service"""
     def __init__(self, db):
+        self.logger = logging.getLogger(__name__)
         self.db = db
         self._init_cache_state()
     
@@ -19,13 +21,16 @@ class CacheService:
     def load_cache(self):
         """Load/reload cache from DB"""
         current_cache_version = self.db.get_cache_version()
-
+        
+        self.logger.debug(f"Current cache version: {st.session_state.task_cache['version']}, DB cache version: {current_cache_version}")
         if not st.session_state.task_cache['loaded'] or \
             st.session_state.task_cache['version'] != current_cache_version:
+
             tasks = self.db.get_all_tasks()
             st.session_state.task_cache['tasks'] = {t['id']: t for t in tasks}
-            st.session_state.task_cache['version'] += 1
+            st.session_state.task_cache['version'] = current_cache_version
             st.session_state.task_cache['loaded'] = True
+            self.logger.info("Task cache successfully loaded and updated.")
     
     def get_tasks(self, filter_tag=None):
         """Get cached tasks with optional filtering"""
@@ -38,3 +43,7 @@ class CacheService:
     def invalidate_cache(self):
         """Mark cache as stale"""
         st.session_state.task_cache['loaded'] = False
+
+    def reset_cache_version(self):
+        """Reset the cache version to 0"""
+        self.db.reset_cache_version()
