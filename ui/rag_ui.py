@@ -53,11 +53,17 @@ def run_app():
 
     # Initialize the RAG system if not already done
     if st.session_state.chain is None:
-        st.session_state.chain, _ = initialize_rag_system(task_db, st.session_state.memory)
-        st.session_state.task_data = _
+        st.session_state.chain, task_data, processed_files_info = initialize_rag_system(
+            task_db, 
+            st.session_state.memory, 
+            uploaded_files=None)
+        st.session_state.task_data = task_data
 
     # Display and manage tasks
-    task_management(task_db, lambda: initialize_rag_system(task_db, st.session_state.memory))
+    task_management(task_db, lambda: initialize_rag_system(
+        task_db, 
+        st.session_state.memory, 
+        uploaded_files=None))
 
     # Task assistant
     task_assistant(st.session_state.chain)
