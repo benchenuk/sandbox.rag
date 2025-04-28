@@ -41,7 +41,6 @@ def authenticate_login():
         logger.info("Streamlit Authenticator initialized successfully.")
 
         # Log in
-        # authenticator.login(location="main")
         name, authentication_status, username = authenticator.login(location="main")
         
 
