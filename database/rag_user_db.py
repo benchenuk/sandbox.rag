@@ -44,6 +44,7 @@ class UserDatabase:
         cursor = self.conn.cursor()
         try:
             hashed_password = Hasher.hash(user_data['password'])
+            
             cursor.execute("""
             INSERT INTO users (username, email, name, hashed_password)
             VALUES (?, ?, ?, ?)
