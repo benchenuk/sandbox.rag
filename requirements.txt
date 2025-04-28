@@ -1,5 +1,8 @@
-google-generativeai
-python-dotenv
-tenacity
 faiss-cpu
-sentence-transformers
+google-generativeai
+langchain
+langchain-community
+langchain_google_genai
+langchain_text_splitters
+streamlit==1.42.2
+streamlit_authenticator==0.4.2
