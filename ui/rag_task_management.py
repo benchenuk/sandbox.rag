@@ -82,6 +82,23 @@ def task_management(db, chain_initialize_func):
     """
     Manage existing tasks, add new ones and display the UI.
     """
+
+    # ─── Inject CSS to left-align all st.button text ───────────────────────────────
+    # Inject stronger CSS to left-align button content (including inner div)
+    st.markdown(
+        """
+        <style>
+          /* Target the button wrapper and its inner flex div */
+          .stButton > button,
+          .stButton > button > div {
+            justify-content: flex-start !important;
+            text-align: left       !important;
+          }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
     # Initialize session state for unified panel
     if 'task_panel_mode' not in st.session_state:
         st.session_state.task_panel_mode = "collapsed"  # collapsed, add, view, edit
