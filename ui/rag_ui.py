@@ -18,7 +18,11 @@ logger = logging.getLogger(__name__)
 def run_app():
     """Main function to run the Streamlit application."""
 
-    st.set_page_config(page_title="Sandbox To Do", layout="wide")
+    st.set_page_config(
+        page_title="Sandbox To Do", 
+        layout="wide", 
+        initial_sidebar_state="collapsed"
+    )
 
     initialize_session_state()
     initialize_authentication_session()
@@ -54,26 +58,37 @@ def run_app():
         st.session_state.cache_service = CacheService(task_db)
         st.session_state.cache_service.reset_cache_version()
 
-    # Main UI layout
-    # st.title("✅ Sandbox To Do")
+    # Add sidebar navigation
+    view_choice = st.sidebar.radio(
+        "Navigation",
+        options=["Tasks", "Knowledge Base"],
+        key="navigation"
+    )
 
     # Initialize the RAG system if not already done
     if st.session_state.chain is None:
         st.session_state.chain, task_data, processed_files_info = initialize_rag_system(
-            task_db, 
-            st.session_state.memory, 
-            uploaded_files=None)
+            task_db,
+            st.session_state.memory,
+            uploaded_files=None
+        )
         st.session_state.task_data = task_data
+        st.session_state.kb_files_info = processed_files_info
 
-    # Display and manage tasks
-    task_management(task_db, lambda: initialize_rag_system(
-        task_db, 
-        st.session_state.memory, 
-        uploaded_files=None))
+    # Conditional rendering based on navigation choice
+    if view_choice == "Tasks":
+        # Display and manage tasks
+        task_management(task_db, lambda: initialize_rag_system(
+            task_db,
+            st.session_state.memory,
+            uploaded_files=None
+        ))
+        # Task assistant
+        task_assistant(st.session_state.chain)
+    else:  # Knowledge Base view
+        st.header("Knowledge Base")
+        st.info("Knowledge Base view coming soon...")  # Placeholder
 
-    # Task assistant
-    task_assistant(st.session_state.chain)
-    
     # Footer
     st.divider()
     st.caption("Task Recommendation System powered by Gemini and LangChain")
@@ -112,3 +127,6 @@ def initialize_session_state():
             'tags': set(),
             'loaded': False
         }
+
+    if 'kb_files_info' not in st.session_state:
+        st.session_state.kb_files_info = []
