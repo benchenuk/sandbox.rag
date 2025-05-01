@@ -30,7 +30,13 @@ def run_app():
     # --- Authentication Check ---
     if st.session_state.get("authentication_status") is None:
         authenticate_login()
-        st.stop()
+        
+        if st.session_state["authentication_status"] is False:
+            st.error('Username/password is incorrect')
+            st.stop()  # Stop execution if login fails
+        elif st.session_state["authentication_status"] is None:
+            st.warning('Please enter your username and password')
+            st.stop()  # Stop execution until logged in
 
     if st.session_state["authentication_status"] is False:
         st.error('Username/password is incorrect')

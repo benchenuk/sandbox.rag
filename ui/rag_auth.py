@@ -22,6 +22,7 @@ def authenticate_login():
         if not credentials or 'usernames' not in credentials:
              logger.error("Failed to fetch credentials from the database.")
              st.error("Authentication setup failed: Could not load user credentials.")
+             st.session_state["authentication_status"] = None
              return None
 
         # Basic cookie configuration (Consider moving to config.ini or env vars for secrets)
@@ -29,7 +30,7 @@ def authenticate_login():
         cookie_config = {
             'name': 'rag_todo_auth_cookie',
             'key': 'a_secure_secret_key_12345', # CHANGE THIS!
-            'expiry_days': 7
+            'expiry_days': 1
         }
 
         authenticator = Authenticate(
@@ -42,7 +43,6 @@ def authenticate_login():
 
         # Log in
         name, authentication_status, username = authenticator.login(location="main")
-        
 
         # Update session state with authentication results
         st.session_state['authentication_status'] = authentication_status
@@ -55,7 +55,9 @@ def authenticate_login():
 
     except Exception as e:
         logger.error(f"An unexpected error occurred during authenticator setup: {e}", exc_info=True)
-        st.error(f"An error occurred during authentication setup: {e}")
+        if st.session_state.get("authentication_status") is False:
+            st.error(f"An error occurred during authentication setup: {e}")
+            logger.error(f"Authentication failed: {e}")
         return None
 
 def initialize_authentication_session():
