@@ -7,6 +7,7 @@ from rag.rag_system import initialize_rag_system
 # from .rag_auth import setup_authenticator
 from ui.rag_auth import authenticate_login
 from ui.rag_auth import initialize_authentication_session
+from ui.rag_kb_view import kb_file_view
 from ui.rag_task_management import task_management
 from ui.rag_task_assist import task_assistant
 from ui.rag_cache import CacheService
@@ -86,8 +87,7 @@ def run_app():
         # Task assistant
         task_assistant(st.session_state.chain)
     else:  # Knowledge Base view
-        st.header("Knowledge Base")
-        st.info("Knowledge Base view coming soon...")  # Placeholder
+        kb_file_view()
 
     # Footer
     st.divider()
